@@ -1,0 +1,48 @@
+(ns machi.hub.sim
+  "Demo driver -- `clojure -M:dev:run`. Walks a clean site through
+  intake -> land-use assessment -> conversion proposal (always
+  escalates) -> human approval -> commit, then shows the HARD holds:
+  a no-spec-basis proposal that never invents a jurisdiction's law,
+  and an unknown jurisdiction that fails closed."
+  (:require [langgraph.graph :as g]
+            [machi.hub.store :as store]
+            [machi.hub.operation :as op]))
+
+(def operator {:actor-id "op-1" :actor-role :machi-hub-operator :phase 3})
+
+(defn- exec! [actor tid request context]
+  (g/run* actor {:request request :context context} {:thread-id tid}))
+
+(defn- approve! [actor tid]
+  (g/run* actor {:approval {:status :approved :by "op-1"}} {:thread-id tid :resume? true}))
+
+(defn -main [& _]
+  (let [db (store/seed-db)
+        actor (op/build db)]
+    (println "== intake site-1 (JPN, shape-only record) ==")
+    (println (exec! actor "t1" {:op :site/intake :subject "site-1"
+                                :patch {:id "site-1" :status :ready}} operator))
+
+    (println "== site/assess site-1 (JPN -- checklist reference) ==")
+    (println (exec! actor "t2" {:op :site/assess :subject "site-1"} operator))
+    (println (approve! actor "t2"))
+
+    (println "== conversion/propose site-1 (feasible -> human approves) ==")
+    (let [r (exec! actor "t3" {:op :conversion/propose :subject "site-1"
+                               :area "downtown"} operator)]
+      (println r)
+      (println "-- human operator approves --")
+      (println (approve! actor "t3")))
+
+    (println "== conversion/propose site-2 (ATL: unknown jurisdiction -> HARD hold) ==")
+    (println (exec! actor "t4" {:op :conversion/propose :subject "site-2"
+                                :area "downtown"} operator))
+
+    (println "== site/assess with :no-spec? (advisor failure injection -> HARD hold) ==")
+    (println (exec! actor "t5" {:op :site/assess :subject "site-1" :no-spec? true} operator))
+
+    (println "== audit ledger ==")
+    (doseq [f (store/ledger db)] (println f))
+
+    (println "== conversion drafts ==")
+    (doseq [r (store/draft-history db)] (println r))))

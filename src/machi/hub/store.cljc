@@ -1,0 +1,102 @@
+(ns machi.hub.store
+  "SSoT for the machi-hub actor, behind a `Store` protocol so the backend
+  is a swap, not a rewrite (the same seam realty.store / formation.store
+  use):
+
+    - `MemStore`     -- atom of EDN. The deterministic default for
+                        dev/tests/demo (no deps).
+
+  The ledger stays append-only on every backend: 'which site was
+  proposed for conversion, on what jurisdictional basis, approved by
+  whom' is always a query over an immutable log."
+  (:require #?(:clj  [clojure.edn :as edn]
+               :cljs [cljs.reader :as edn])
+            [machi.hub.registry :as registry]))
+
+(defprotocol Store
+  (site [s id])
+  (all-sites [s])
+  (demand-of [s area-id] "committed demand observation for an area, or nil")
+  (assessment-of [s site-id] "committed jurisdiction/land-use assessment, or nil")
+  (ledger [s])
+  (draft-history [s] "the append-only conversion-draft history")
+  (next-sequence [s jurisdiction] "next draft-id sequence for a jurisdiction")
+  (commit-record! [s record] "apply a committed op's record to the SSoT")
+  (append-ledger! [s fact] "append one immutable decision fact")
+  (with-sites [s sites] "replace/seed the site directory (map id->site)")
+  (with-demand [s demand] "replace/seed the demand observations (map area->demand)"))
+
+;; ----------------------------- MemStore -----------------------------
+
+(defrecord MemStore [state]
+  Store
+  (site [s id] (get-in @state [:sites id]))
+  (all-sites [s] (vals (:sites @state)))
+  (demand-of [s area-id] (get-in @state [:demand area-id]))
+  (assessment-of [s site-id] (get-in @state [:assessments site-id]))
+  (ledger [s] (:ledger @state))
+  (draft-history [s] (:drafts @state))
+  (next-sequence [s jurisdiction]
+    (count (filter #(= jurisdiction (:jurisdiction %)) (:drafts @state))))
+  (commit-record! [s record]
+    (case (:kind record)
+      ;; conversion drafts accumulate append-only
+      "draft" (swap! state update :drafts conj record)
+      ;; site/land-use assessments key by site
+      "assessment" (swap! state assoc-in [:assessments (:site-id record)] record)
+      ;; site directory upserts (from :site/intake): MERGE the patch into
+      ;; the existing record (or create one) -- never clobber the seeded
+      ;; shape with a patch stub.
+      ("site" nil) (let [id (or (get-in record [:payload :id])
+                                (get-in record [:value :id])
+                                (:site-id record))
+                         existing (get-in @state [:sites id])]
+                     (swap! state assoc-in [:sites id]
+                            (merge existing (:value record)))
+                     )
+      ;; unknown kinds land in drafts too -- nothing silently dropped
+      (swap! state update :drafts conj record))
+    s)
+  (append-ledger! [s fact]
+    (swap! state update :ledger conj fact)
+    s)
+  (with-sites [s sites] (swap! state assoc :sites sites) s)
+  (with-demand [s demand] (swap! state assoc :demand demand) s))
+
+(defn mem-store
+  "An empty in-memory store."
+  []
+  (->MemStore (atom {:sites {} :demand {} :assessments {} :drafts [] :ledger []})))
+
+(defn seed-db
+  "A small, self-contained demo set so the actor + tests run offline.
+  Sites are deliberately SHAPE-ONLY -- no owner names (G3)."
+  []
+  (let [st (mem-store)]
+    (with-sites st
+      {"site-1" {:site-id "site-1" :jurisdiction "JPN"
+                 :floor-area-m2 40 :floor 1
+                 :entrance-width-m 1.2 :freight-access :street
+                 :freight-lift false :vacancy-months 14
+                 :asking-rent-jpy 120000 :zoning "semi-industrial"
+                 :status :intake}
+       "site-2" {:site-id "site-2" :jurisdiction "ATL"  ; unknown jurisdiction
+                 :floor-area-m2 30 :floor 1
+                 :entrance-width-m 1.0 :freight-access :street
+                 :freight-lift false :vacancy-months 9
+                 :asking-rent-jpy 90000 :zoning "unknown"
+                 :status :intake}})
+    (with-demand st
+      {"downtown" {:area-id "downtown" :delivery-density-per-km2 900
+                   :pickup-demand-index 0.7 :distance-nearest-hub-km 2.4}})
+    st))
+
+(defn load-db
+  "Load a store snapshot from EDN (offline persistence for dev)."
+  [edn-text]
+  (->MemStore (atom (edn/read-string edn-text))))
+
+(defn dump-db
+  "EDN snapshot of the store state (dev persistence)."
+  [s]
+  (pr-str @(:state s)))

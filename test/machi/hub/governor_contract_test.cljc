@@ -1,0 +1,60 @@
+(ns machi.hub.governor-contract-test
+  "The governor refusal demonstration: every HARD gate refuses, and a
+  refusal cannot be approved past."
+  (:require [clojure.test :refer [deftest is testing]]
+            [machi.hub.governor :as governor]
+            [machi.hub.hubadvisor :as hubadvisor]
+            [machi.hub.store :as store]))
+
+(def db (store/seed-db))
+(def advisor (hubadvisor/mock-advisor))
+(def ctx {:actor-id "test" :actor-role :test :phase 3})
+
+(deftest no-spec-basis-is-hard
+  (testing "an assess proposal with empty cites is a HARD violation"
+    (let [p (advisor db {:op :site/assess :subject "site-1" :no-spec? true})
+          v (governor/check {:op :site/assess :subject "site-1"} ctx p db)]
+      (is (:hard? v))
+      (is (some #(= :no-spec-basis (:rule %)) (:violations v)))
+      (is (not (:ok? v))))))
+
+(deftest unknown-jurisdiction-is-hard
+  (testing "a conversion in ATL (no facts entry) fails closed"
+    (let [p (advisor db {:op :conversion/propose :subject "site-2" :area "downtown"})
+          v (governor/check {:op :conversion/propose :subject "site-2"} ctx p db)]
+      (is (:hard? v))
+      (is (some #(= :unverified-zoning (:rule %)) (:violations v))))))
+
+(deftest actuation-effect-is-hard
+  (testing "the advisor can never claim an actuation effect"
+    (let [p (assoc (advisor db {:op :conversion/propose :subject "site-1" :area "downtown"})
+                   :effect :lease/sign)
+          v (governor/check {:op :conversion/propose :subject "site-1"} ctx p db)]
+      (is (:hard? v))
+      (is (some #(= :actuation-claimed (:rule %)) (:violations v))))))
+
+(deftest personal-data-is-hard
+  (testing "owner/tenant data riding a proposal is a G3 hard violation"
+    (let [p (-> (advisor db {:op :conversion/propose :subject "site-1" :area "downtown"})
+                (assoc-in [:value :owner] "山田 太郎"))
+          v (governor/check {:op :conversion/propose :subject "site-1"} ctx p db)]
+      (is (:hard? v))
+      (is (some #(= :personal-data-in-proposal (:rule %)) (:violations v))))))
+
+(deftest clean-intake-auto-commits-shape
+  (testing "governor-clean high-confidence intake is ok? (phase still gates it)"
+    (let [p (advisor db {:op :site/intake :subject "site-1"
+                         :patch {:id "site-1" :status :ready}})
+          v (governor/check {:op :site/intake :subject "site-1"} ctx p db)]
+      (is (:ok? v))
+      (is (not (:hard? v)))
+      (is (not (:escalate? v))))))
+
+(deftest feasible-conversion-escalates-not-commits
+  (testing "a feasible conversion draft is SOFT-escalated: a human approves
+            the business decision -- it never auto-commits"
+    (let [p (advisor db {:op :conversion/propose :subject "site-1" :area "downtown"})
+          v (governor/check {:op :conversion/propose :subject "site-1"} ctx p db)]
+      (is (not (:hard? v)))
+      (is (:escalate? v))
+      (is (not (:ok? v))))))

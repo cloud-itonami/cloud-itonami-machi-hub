@@ -1,0 +1,32 @@
+(ns machi.hub.phase-test
+  "The phase table: :conversion/propose is never auto-eligible at any
+  phase -- the structural invariant."
+  (:require [clojure.test :refer [deftest is testing]]
+            [machi.hub.phase :as phase]))
+
+(deftest conversion-never-auto
+  (testing "at every phase, a clean conversion proposal escalates"
+    (doseq [ph [0 1 2 3]]
+      (let [{:keys [disposition]} (phase/gate ph {:op :conversion/propose} :commit)]
+        (is (not= :commit disposition)
+            (str "phase " ph " must not auto-commit conversions"))))))
+
+(deftest intake-auto-at-phase-3-only
+  (testing "intake escalates until phase 3, auto-commits there"
+    (is (= :escalate (:disposition (phase/gate 1 {:op :site/intake} :commit))))
+    (is (= :commit (:disposition (phase/gate 3 {:op :site/intake} :commit))))))
+
+(deftest hold-stays-hold
+  (testing "governor HOLD is never softened by phase"
+    (is (= :hold (:disposition (phase/gate 3 {:op :site/intake} :hold))))))
+
+(deftest phase-disabled-before-writes
+  (testing "a write op before its phase is a HOLD with :phase-disabled"
+    (let [r (phase/gate 0 {:op :site/intake} :commit)]
+      (is (= :hold (:disposition r)))
+      (is (= :phase-disabled (:reason r))))))
+
+(deftest actuation-not-even-a-write-op
+  (testing "actuation ops are not in write-ops at all -- phase can't enable them"
+    (is (not (contains? phase/write-ops :lease/sign)))
+    (is (not (contains? phase/write-ops :renovation/start)))))

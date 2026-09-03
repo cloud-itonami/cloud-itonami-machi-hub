@@ -1,0 +1,19 @@
+{:itonami.blueprint/id "cloud-itonami-machihub"
+ :itonami.blueprint/name "Machi-Hub (vacant property to micro logistics hub)"
+ :itonami.blueprint/isic-rev5 "6810"
+ :itonami.blueprint/domain :realty/micro-hub-conversion
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:vacant-property-revitalization
+                                   :local-commerce
+                                   :delivery-density-efficiency]
+ :itonami.blueprint/governor :machi-hub-governor
+ :itonami.blueprint/required-technologies [:identity :forms :audit-ledger]
+ :itonami.blueprint/optional-technologies [:logistics :optimization :robotics]
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/robotics false
+ :itonami.blueprint/capabilities {:realty     "cloud-itonami-isic-6810"
+                                  :logistics  "kotoba-lang/logistics"
+                                  :stores     "kotoba-lang/omise"
+                                  :courier    "cloud-itonami-isic-5320"
+                                  :warehouse  "kotoba-lang/soko"}
+ :itonami.blueprint/maturity :implemented}

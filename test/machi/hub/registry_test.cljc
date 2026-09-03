@@ -1,0 +1,87 @@
+(ns machi.hub.registry-test
+  "Pure domain core: micro-hub feasibility + scoring. TDD pairs with
+  machi.hub.registry."
+  (:require [clojure.test :refer [deftest is testing]]
+            [machi.hub.registry :as reg]))
+
+(def good-site
+  {:site-id "site-1"
+   :jurisdiction "JPN"
+   :floor-area-m2 40
+   :floor 1
+   :entrance-width-m 1.2
+   :freight-access :street
+   :vacancy-months 14
+   :asking-rent-jpy 120000})
+
+(def good-demand
+  {:delivery-density-per-km2 900
+   :pickup-demand-index 0.7
+   :distance-nearest-hub-km 2.4})
+
+(deftest feasible-happy-path
+  (testing "well-shaped site + real demand = feasible with no unverified fields"
+    (let [r (reg/feasible? good-site good-demand "JPN")]
+      (is (:feasible? r))
+      (is (empty? (:unverified r)))
+      (is (empty? (:failures r))))))
+
+(deftest floor-area-too-small
+  (testing "below the micro-hub minimum floor area is infeasible"
+    (let [r (reg/feasible? (assoc good-site :floor-area-m2 10) good-demand "JPN")]
+      (is (not (:feasible? r)))
+      (is (some #(= :floor-area-below-minimum (:rule %)) (:failures r))))))
+
+(deftest no-freight-access
+  (testing "no street-level freight access is infeasible"
+    (let [r (reg/feasible? (assoc good-site :freight-access :none) good-demand "JPN")]
+      (is (not (:feasible? r)))
+      (is (some #(= :no-freight-access (:rule %)) (:failures r))))))
+
+(deftest demand-below-threshold
+  (testing "thin delivery density near an existing hub is infeasible"
+    (let [r (reg/feasible? good-site
+                           (assoc good-demand :delivery-density-per-km2 50)
+                           "JPN")]
+      (is (not (:feasible? r)))
+      (is (some #(= :demand-below-threshold (:rule %)) (:failures r))))))
+
+(deftest upper-floor-without-freight-lift
+  (testing "2F+ sites need a freight lift to be feasible"
+    (is (not (:feasible? (reg/feasible? (assoc good-site :floor 2) good-demand "JPN"))))
+    (is (:feasible? (reg/feasible? (assoc good-site :floor 2 :freight-lift true)
+                                   good-demand
+                                   "JPN")))))
+
+(deftest unknown-jurisdiction-is-unverified-not-false
+  (testing "a jurisdiction with no facts entry yields :unverified, never a silent pass"
+    (let [r (reg/feasible? good-site good-demand "ATL")]
+      (is (nil? (:feasible? r)))
+      (is (= [:zoning-use] (:unverified r))))))
+
+(deftest known-jurisdiction-zoning-check
+  (testing "JPN facts carry a real provenance citation and the check runs"
+    (let [facts (reg/jurisdiction-facts "JPN")]
+      (is (string? (:zoning-authority facts)))
+      (is (string? (:provenance facts)))
+      (is (re-find #"https://" (:provenance facts))))))
+
+(deftest score-orders-by-rent-spread-and-demand
+  (testing "closer to demand + cheaper rent scores higher"
+    (let [a (reg/score good-site good-demand)              ; baseline
+          closer (reg/score good-site
+                            (assoc good-demand :distance-nearest-hub-km 0.8))
+          pricier (reg/score (assoc good-site :asking-rent-jpy 400000) good-demand)]
+      (is (pos? (:total a)))
+      (is (> (:total closer) (:total a)))
+      (is (> (:total a) (:total pricier))))))
+
+(deftest conversion-draft-is-proposal-only
+  (testing "the record is a draft with no committed act and no personal data"
+    (let [d (reg/conversion-draft good-site good-demand "JPN" 7)]
+      (is (= "draft" (:kind d)))
+      (is (false? (:committed d)))
+      (is (string? (re-find #"JPN-" (:draft-id d))))
+      ;; G3: no owner/tenant names ride the draft
+      (is (not (contains? d :owner)))
+      (is (not (contains? d :tenant))))))
