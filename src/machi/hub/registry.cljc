@@ -19,7 +19,7 @@
     - the zoning check for a KNOWN jurisdiction is a document/prerequisite
       checklist keyed to that jurisdiction's official authority, cited by
       URL. It does NOT decide land law."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; ----------------------------- thresholds -----------------------------
 ;; Deliberately conservative seed values for a SMALL urban micro-hub
@@ -185,7 +185,7 @@
     (throw (ex-info "draft: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "draft: sequence must be >= 0" {})))
-  (let [draft-id (str (str/upper-case jurisdiction) "-MH-" (zero-pad sequence 8))
+  (let [draft-id (str (str/upper jurisdiction) "-MH-" (zero-pad sequence 8))
         assessment (feasible? site demand jurisdiction)]
     (assoc assessment
            :kind "draft"

@@ -7,7 +7,7 @@
   reference them. Same honesty discipline as realty.facts / formation.facts:
   a jurisdiction with no entry has NO spec basis -- the advisor must not
   fabricate one, and the governor holds if it tries."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [machi.hub.registry :as reg]))
 
 (defn registry-facts

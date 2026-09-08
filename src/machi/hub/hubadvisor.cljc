@@ -23,7 +23,7 @@
      :value      map
      :stake      kw|nil
      :confidence 0..1}"
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [machi.hub.registry :as registry]
             [machi.hub.store :as store]))
 
