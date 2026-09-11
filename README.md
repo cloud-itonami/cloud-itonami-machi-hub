@@ -74,8 +74,8 @@ test/machi/hub/      # 24 tests / 63 assertions
 ## Run
 
 ```bash
-clojure -M:test        # 24 tests, 63 assertions
-clojure -M:dev:run     # the governed actor demo — every refusal, in the ledger
+kbb -M:test        # 24 tests, 63 assertions
+kbb -M:dev:run     # the governed actor demo — every refusal, in the ledger
 ```
 
 Standalone forks: `deps.edn` resolves `langgraph-clj` via `:local/root`

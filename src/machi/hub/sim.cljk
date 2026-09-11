@@ -1,5 +1,5 @@
 (ns machi.hub.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clean site through
+  "Demo driver -- `kbb -M:dev:run`. Walks a clean site through
   intake -> land-use assessment -> conversion proposal (always
   escalates) -> human approval -> commit, then shows the HARD holds:
   a no-spec-basis proposal that never invents a jurisdiction's law,
