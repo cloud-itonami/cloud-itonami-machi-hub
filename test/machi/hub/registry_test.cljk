@@ -1,7 +1,7 @@
 (ns machi.hub.registry-test
   "Pure domain core: micro-hub feasibility + scoring. TDD pairs with
   machi.hub.registry."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [machi.hub.registry :as reg]))
 
 (def good-site

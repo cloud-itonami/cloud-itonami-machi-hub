@@ -3,3 +3,4 @@
 .lsp/
 .clj-kondo/.cache/
 target/
+.nbb/
