@@ -1,7 +1,7 @@
 (ns machi.hub.governor-contract-test
   "The governor refusal demonstration: every HARD gate refuses, and a
   refusal cannot be approved past."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [machi.hub.governor :as governor]
             [machi.hub.hubadvisor :as hubadvisor]
             [machi.hub.store :as store]))

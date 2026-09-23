@@ -1,7 +1,7 @@
 (ns machi.hub.store-contract-test
   "The MemStore contract: ledger is append-only, drafts accumulate,
   sequences are jurisdiction-scoped."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [machi.hub.store :as store]))
 
 (deftest ledger-append-only

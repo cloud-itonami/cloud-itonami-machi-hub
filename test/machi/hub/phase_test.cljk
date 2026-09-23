@@ -1,7 +1,7 @@
 (ns machi.hub.phase-test
   "The phase table: :conversion/propose is never auto-eligible at any
   phase -- the structural invariant."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [machi.hub.phase :as phase]))
 
 (deftest conversion-never-auto
