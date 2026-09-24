@@ -1,0 +1,26 @@
+{
+  "jobs": [
+    {
+      "base_url": null,
+      "context_from": null,
+      "deliver": "local",
+      "enabled": true,
+      "enabled_toolsets": null,
+      "id": "7513538e4385",
+      "model": "qwen3.8-27b-whitehacker",
+      "name": "machihub-bot-watch",
+      "no_agent": false,
+      "prompt": "Machi-Hub bot health watch (business-6810-assignmentisic68). 捏造ゼロ — unknown は unknown と書く。差分検知: まず curl -s \"https://itonami.cloud/api/v1/grok-bots/bots/business-6810-assignmentisic68/activity\" を取り、data[0].activity_id を ~/.gftd/machihub-watch-lastseq.txt の前回値と比べる。同一なら「差分なし」1行で終了。変化があれば: ①新 checkpoint の type/proposal/tool_result.ok を読む ②conversation.checkpoint が無い、または tool_result ok:false が続くならその状態を報告 ③bot が held/停止気配なら GET /api/v1/grok-bots/businesses と /api/v1/bot-economy で assignment/position status を確認して報告する（restart/reconfigure はしない — budget 補充と resume は owner 決定）。成果物: ~/.gftd/machihub-watch-lastseq.txt を最新 activity_id で更新。[SILENT]",
+      "provider": "kotoba",
+      "schedule": {
+        "kind": "cron",
+        "expr": "53 2 * * *",
+        "display": "53 2 * * *"
+      },
+      "script": null,
+      "skill": null,
+      "skills": [],
+      "workdir": null
+    }
+  ]
+}
